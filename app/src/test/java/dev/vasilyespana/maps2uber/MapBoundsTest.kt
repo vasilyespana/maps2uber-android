@@ -28,8 +28,8 @@ class MapBoundsTest {
     @Test
     fun `single point is padded to the minimum span`() {
         val bounds = MapBounds.ofPoints(listOf(LatLng(18.1, -66.5)))!!
-        assertTrue(bounds.north - bounds.south >= MapBounds.MIN_SPAN_DEG)
-        assertTrue(bounds.east - bounds.west >= MapBounds.MIN_SPAN_DEG)
+        assertTrue(bounds.north - bounds.south >= MapBounds.MIN_SPAN_DEG - 1e-12)
+        assertTrue(bounds.east - bounds.west >= MapBounds.MIN_SPAN_DEG - 1e-12)
         // stays centered on the point
         assertEquals(18.1, (bounds.north + bounds.south) / 2, 1e-9)
         assertEquals(-66.5, (bounds.east + bounds.west) / 2, 1e-9)

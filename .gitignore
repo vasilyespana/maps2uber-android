@@ -3,3 +3,11 @@
 
 release.keystore
 keystore.properties
+
+# build outputs
+build/
+app/build/
+.gradle/
+local.properties
+*.iml
+.DS_Store

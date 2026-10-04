@@ -1,4 +1,0 @@
--keep,allowobfuscation,allowshrinking class dev.vasilyespana.maps2uber.MainViewModel
--keep,allowobfuscation,allowshrinking class dev.vasilyespana.maps2uber.MainViewModel
--keep,allowobfuscation,allowshrinking class dev.vasilyespana.maps2uber.ui.settings.SettingsViewModel
--keep,allowobfuscation,allowshrinking class dev.vasilyespana.maps2uber.ui.settings.SettingsViewModel

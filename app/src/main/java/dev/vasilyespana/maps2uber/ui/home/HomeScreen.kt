@@ -24,15 +24,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.vasilyespana.maps2uber.core.history.HistoryEntry
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,6 +45,9 @@ fun HomeScreen(
     onGenerateManual: (Double, Double) -> Boolean,
     onOpenSettings: () -> Unit,
     error: String?,
+    history: List<HistoryEntry> = emptyList(),
+    onSelectHistory: (HistoryEntry) -> Unit = {},
+    onClearHistory: () -> Unit = {},
 ) {
     var link by remember { mutableStateOf("") }
     var latText by remember { mutableStateOf("") }
@@ -150,6 +157,47 @@ fun HomeScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            if (history.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Recent", style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = onClearHistory) { Text("Clear") }
+                }
+                history.forEach { entry ->
+                    Card(
+                        onClick = { onSelectHistory(entry) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    entry.label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    entry.input,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             Spacer(Modifier.width(1.dp))
         }
     }

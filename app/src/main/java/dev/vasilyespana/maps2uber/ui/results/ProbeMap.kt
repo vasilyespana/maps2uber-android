@@ -19,7 +19,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import dev.vasilyespana.maps2uber.ProbeLink
 import dev.vasilyespana.maps2uber.ResolvedPage
+import dev.vasilyespana.maps2uber.core.geo.LatLng
+import dev.vasilyespana.maps2uber.core.geo.MapBounds
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
@@ -60,12 +63,14 @@ fun ProbeMap(
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
+            // Initial framing; refined to the pin bounds once laid out.
             controller.setZoom(16.0)
             controller.setCenter(GeoPoint(page.lat, page.lng))
         }
     }
 
-    // (Re)build the 11 markers whenever the resolved page changes.
+    // (Re)build the 11 markers whenever the resolved page changes, then zoom
+    // so the pins fill the widget instead of sitting in a tiny cluster.
     DisposableEffect(page) {
         mapView.overlays.clear()
         val mainIcon = pinDrawable(context, Color.parseColor("#2E7D32"), 44)
@@ -95,6 +100,14 @@ fun ProbeMap(
             }.also { mapView.overlays.add(it) }
         }
         mapView.invalidate()
+
+        // Fit the pins to the widget. Must run after layout, hence post().
+        val points = listOf(LatLng(page.lat, page.lng)) +
+            page.probes.map { LatLng(it.lat, it.lng) }
+        MapBounds.ofPoints(points)?.let { b ->
+            val box = BoundingBox(b.north, b.east, b.south, b.west)
+            mapView.post { mapView.zoomToBoundingBox(box, false, 120) }
+        }
         onDispose { }
     }
 

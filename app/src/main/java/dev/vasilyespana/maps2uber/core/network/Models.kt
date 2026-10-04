@@ -28,6 +28,16 @@ sealed interface ResolveResult {
     data class Err(val error: String, val name: String? = null) : ResolveResult
 }
 
+/**
+ * Learning-loop intake payload for POST /api/resolve-failures.
+ * Lets the backend improve its link-recognition scripts over time.
+ */
+data class FailureReportDto(
+    @SerializedName("url") val url: String,
+    @SerializedName("error") val error: String,
+    @SerializedName("source") val source: String = "android",
+)
+
 /** Single mapping point: raw JSON -> ResolveResult. Unit-tested. */
 object ResolveParser {
     private val gson = Gson()

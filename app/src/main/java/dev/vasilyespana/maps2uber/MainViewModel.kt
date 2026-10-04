@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.vasilyespana.maps2uber.core.geo.Pickup
 import dev.vasilyespana.maps2uber.core.geo.UberLinks
+import dev.vasilyespana.maps2uber.core.network.FailureReportRepository
 import dev.vasilyespana.maps2uber.core.network.ResolveRepository
 import dev.vasilyespana.maps2uber.core.network.ResolveResult
 import dev.vasilyespana.maps2uber.core.settings.AppSettings
@@ -37,6 +38,7 @@ data class ResolvedPage(
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val repository: ResolveRepository,
+    private val failureReports: FailureReportRepository,
     private val settingsStore: SettingsStore,
 ) : ViewModel() {
 
@@ -59,9 +61,14 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             when (val r = repository.resolve(url)) {
                 is ResolveResult.Ok -> _flow.value = FlowState.Ready(buildPage(r.lat, r.lng, r.name, r.address))
-                is ResolveResult.Err -> _flow.value = FlowState.Failed(
-                    "Couldn't resolve that link (${r.error}). Try pasting another link or enter coordinates manually.",
-                )
+                is ResolveResult.Err -> {
+                    // Learning-loop intake: report the unrecognized link in its
+                    // own coroutine so it can never delay or break the UI.
+                    launch { failureReports.report(url, r.error) }
+                    _flow.value = FlowState.Failed(
+                        "Couldn't resolve that link (${r.error}). Try pasting another link or enter coordinates manually.",
+                    )
+                }
             }
         }
     }

@@ -8,6 +8,7 @@ name: Android device gate
 # ANDROID_KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD.
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main]
     paths:

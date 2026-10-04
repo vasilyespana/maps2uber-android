@@ -39,3 +39,7 @@ Probes: 10 points at bearings 0°, 36°, …, 324°, 100 m out (haversine destin
 ## Quality gate
 
 Every PR to `main` runs `.github/workflows/android-device-gate.yml`: unit tests → release build → `apksigner`/`aapt2` static checks → install + launch on a real BrowserStack Pixel 7 → screenshot artifact. No Vercel anywhere in this stack (GitHub + Cloudflare only).
+
+## Device gate
+
+Releases pass the automated device gate: signed release APKs are installed and launched on real BrowserStack devices before any release is cut.

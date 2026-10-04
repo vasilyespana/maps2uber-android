@@ -19,7 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -267,7 +267,7 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.testTag("detect_location_button"),
                 ) {
-                    Icon(Icons.Filled.MyLocation, contentDescription = null)
+                    Icon(Icons.Filled.LocationOn, contentDescription = null)
                     Text("  Detect my location")
                 }
                 if (locationMsg != null) {
@@ -405,7 +405,7 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.testTag("fill_from_location_button"),
                 ) {
-                    Icon(Icons.Filled.MyLocation, contentDescription = null)
+                    Icon(Icons.Filled.LocationOn, contentDescription = null)
                     Text("  Fill from my location")
                 }
                 if (locationMsg != null && s.pickupMode == PickupMode.PRESET) {

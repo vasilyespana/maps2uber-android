@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Uber-ish black + Maps pin red -->
+    <color name="launcher_bg">#111111</color>
+    <color name="brand_green">#06C167</color>
+    <color name="pin_red">#EA4335</color>
+</resources>

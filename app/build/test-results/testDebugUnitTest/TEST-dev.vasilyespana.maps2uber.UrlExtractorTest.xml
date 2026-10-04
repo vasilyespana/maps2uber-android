@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.vasilyespana.maps2uber.UrlExtractorTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-04T15:54:16" hostname="htch-runtime" time="0.039">
+  <properties/>
+  <testcase name="firstUrl_noUrl_returnsNull" classname="dev.vasilyespana.maps2uber.UrlExtractorTest" time="0.026"/>
+  <testcase name="firstUrl_stripsTrailingPunctuation" classname="dev.vasilyespana.maps2uber.UrlExtractorTest" time="0.007"/>
+  <testcase name="firstUrl_shortLinkBuriedInText" classname="dev.vasilyespana.maps2uber.UrlExtractorTest" time="0.002"/>
+  <testcase name="firstUrl_takesFirst_whenSeveral" classname="dev.vasilyespana.maps2uber.UrlExtractorTest" time="0.001"/>
+  <testcase name="firstUrl_httpAlsoMatches" classname="dev.vasilyespana.maps2uber.UrlExtractorTest" time="0.001"/>
+  <testcase name="firstUrl_fullMapsUrl" classname="dev.vasilyespana.maps2uber.UrlExtractorTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

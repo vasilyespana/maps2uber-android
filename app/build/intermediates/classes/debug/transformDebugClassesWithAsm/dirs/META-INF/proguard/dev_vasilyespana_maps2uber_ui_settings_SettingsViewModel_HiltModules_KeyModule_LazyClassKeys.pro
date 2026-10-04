@@ -1,0 +1,1 @@
+-keep,allowobfuscation,allowshrinking class dev.vasilyespana.maps2uber.ui.settings.SettingsViewModel

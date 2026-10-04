@@ -1,6 +1,7 @@
 package dev.vasilyespana.maps2uber.core.settings
 
 import android.content.Context
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -16,12 +17,15 @@ private val Context.dataStore by preferencesDataStore(name = "maps2uber_settings
 /** Pickup mode for the Uber links: rider's live location, or a saved preset. */
 enum class PickupMode { CURRENT_LOCATION, PRESET }
 
-data class PickupPreset(val name: String, val lat: Double, val lng: Double)
-
 data class AppSettings(
     val pickupMode: PickupMode = PickupMode.CURRENT_LOCATION,
-    val preset: PickupPreset = PickupPreset("", 0.0, 0.0),
-)
+    val presets: List<PickupPreset> = emptyList(),
+    val activePresetId: String? = null,
+) {
+    /** The preset currently used for pickup params, if any. */
+    val activePreset: PickupPreset?
+        get() = presets.find { it.id == activePresetId } ?: presets.firstOrNull()
+}
 
 @Singleton
 class SettingsStore @Inject constructor(
@@ -29,21 +33,26 @@ class SettingsStore @Inject constructor(
 ) {
     private object Keys {
         val PICKUP_MODE = stringPreferencesKey("pickup_mode")
-        val PRESET_NAME = stringPreferencesKey("preset_name")
-        val PRESET_LAT = doublePreferencesKey("preset_lat")
-        val PRESET_LNG = doublePreferencesKey("preset_lng")
+        val PRESETS_JSON = stringPreferencesKey("presets_json")
+        val ACTIVE_PRESET_ID = stringPreferencesKey("active_preset_id")
+
+        // v1.0 legacy single-preset keys (migrated on read, cleared on write).
+        // Types must match v1.0 exactly or the read misses.
+        val LEGACY_NAME = stringPreferencesKey("preset_name")
+        val LEGACY_LAT = doublePreferencesKey("preset_lat")
+        val LEGACY_LNG = doublePreferencesKey("preset_lng")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
+        val presets = readPresets(p)
+        val activeId = p[Keys.ACTIVE_PRESET_ID]?.takeIf { id -> presets.any { it.id == id } }
+            ?: presets.firstOrNull()?.id
         AppSettings(
             pickupMode = runCatching {
                 PickupMode.valueOf(p[Keys.PICKUP_MODE] ?: PickupMode.CURRENT_LOCATION.name)
             }.getOrDefault(PickupMode.CURRENT_LOCATION),
-            preset = PickupPreset(
-                name = p[Keys.PRESET_NAME].orEmpty(),
-                lat = p[Keys.PRESET_LAT] ?: 0.0,
-                lng = p[Keys.PRESET_LNG] ?: 0.0,
-            ),
+            presets = presets,
+            activePresetId = activeId,
         )
     }
 
@@ -51,11 +60,51 @@ class SettingsStore @Inject constructor(
         context.dataStore.edit { it[Keys.PICKUP_MODE] = mode.name }
     }
 
-    suspend fun setPreset(preset: PickupPreset) {
-        context.dataStore.edit {
-            it[Keys.PRESET_NAME] = preset.name
-            it[Keys.PRESET_LAT] = preset.lat
-            it[Keys.PRESET_LNG] = preset.lng
+    /** Adds a preset; the first preset becomes active. */
+    suspend fun addPreset(preset: PickupPreset) {
+        context.dataStore.edit { p ->
+            val current = readPresets(p)
+            val updated = current + preset
+            writePresets(p, updated)
+            if (current.isEmpty()) p[Keys.ACTIVE_PRESET_ID] = preset.id
         }
+    }
+
+    suspend fun deletePreset(id: String) {
+        context.dataStore.edit { p ->
+            val updated = readPresets(p).filterNot { it.id == id }
+            writePresets(p, updated)
+            if (p[Keys.ACTIVE_PRESET_ID] == id) {
+                val next = updated.firstOrNull()?.id
+                if (next != null) p[Keys.ACTIVE_PRESET_ID] = next else p.remove(Keys.ACTIVE_PRESET_ID)
+            }
+        }
+    }
+
+    suspend fun setActivePreset(id: String) {
+        context.dataStore.edit { p ->
+            if (readPresets(p).any { it.id == id }) p[Keys.ACTIVE_PRESET_ID] = id
+        }
+    }
+
+    // ---- internal helpers (operate on the preferences inside edit) ----
+
+    private fun readPresets(p: androidx.datastore.preferences.core.Preferences): List<PickupPreset> {
+        val stored = PresetCodec.decode(p[Keys.PRESETS_JSON].orEmpty())
+        if (stored.isNotEmpty()) return stored
+        // One-time lazy migration from the v1.0 single preset.
+        return PresetCodec.migrateLegacy(
+            name = p[Keys.LEGACY_NAME].orEmpty(),
+            lat = p[Keys.LEGACY_LAT] ?: 0.0,
+            lng = p[Keys.LEGACY_LNG] ?: 0.0,
+        )
+    }
+
+    private fun writePresets(p: MutablePreferences, presets: List<PickupPreset>) {
+        p[Keys.PRESETS_JSON] = PresetCodec.encode(presets)
+        // Clear legacy keys so they can never shadow the new list.
+        p.remove(Keys.LEGACY_NAME)
+        p.remove(Keys.LEGACY_LAT)
+        p.remove(Keys.LEGACY_LNG)
     }
 }

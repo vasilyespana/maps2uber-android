@@ -87,12 +87,14 @@ class MainViewModel @Inject constructor(
 
     private fun currentPickup(): Pickup? {
         val s = settings.value
+        val preset = s.activePreset
         return if (s.pickupMode == PickupMode.PRESET &&
-            s.preset.name.isNotBlank() &&
-            s.preset.lat in -90.0..90.0 && s.preset.lng in -180.0..180.0 &&
-            (s.preset.lat != 0.0 || s.preset.lng != 0.0)
+            preset != null &&
+            preset.name.isNotBlank() &&
+            preset.lat in -90.0..90.0 && preset.lng in -180.0..180.0 &&
+            (preset.lat != 0.0 || preset.lng != 0.0)
         ) {
-            Pickup(s.preset.lat, s.preset.lng, s.preset.name)
+            Pickup(preset.lat, preset.lng, preset.name)
         } else {
             // Current location: omit pickup params entirely — Uber uses the rider's location.
             null

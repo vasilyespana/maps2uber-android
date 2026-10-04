@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.vasilyespana.maps2uber.core.geo.Pickup
 import dev.vasilyespana.maps2uber.core.geo.UberLinks
+import dev.vasilyespana.maps2uber.core.history.HistoryEntry
+import dev.vasilyespana.maps2uber.core.history.HistoryKind
+import dev.vasilyespana.maps2uber.core.history.HistoryStore
 import dev.vasilyespana.maps2uber.core.network.FailureReportRepository
 import dev.vasilyespana.maps2uber.core.network.ResolveRepository
 import dev.vasilyespana.maps2uber.core.network.ResolveResult
@@ -40,6 +43,7 @@ class MainViewModel @Inject constructor(
     private val repository: ResolveRepository,
     private val failureReports: FailureReportRepository,
     private val settingsStore: SettingsStore,
+    private val historyStore: HistoryStore,
 ) : ViewModel() {
 
     sealed interface FlowState {
@@ -55,12 +59,23 @@ class MainViewModel @Inject constructor(
     val settings: StateFlow<AppSettings> = settingsStore.settings
         .stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
 
+    val history: StateFlow<List<HistoryEntry>> = historyStore.history
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun clearHistory() = viewModelScope.launch { historyStore.clear() }
+
     /** Cold start with a shared / tapped maps link: skip Home, go straight to Resolving. */
     fun startWithUrl(url: String) {
         _flow.value = FlowState.Resolving(url)
         viewModelScope.launch {
             when (val r = repository.resolve(url)) {
-                is ResolveResult.Ok -> _flow.value = FlowState.Ready(buildPage(r.lat, r.lng, r.name, r.address))
+                is ResolveResult.Ok -> {
+                    _flow.value = FlowState.Ready(buildPage(r.lat, r.lng, r.name, r.address))
+                    val label = r.name.ifBlank { url.take(48) }
+                    historyStore.record(
+                        HistoryEntry(kind = HistoryKind.LINK, input = url, label = label),
+                    )
+                }
                 is ResolveResult.Err -> {
                     // Learning-loop intake: report the unrecognized link in its
                     // own coroutine so it can never delay or break the UI.
@@ -78,6 +93,15 @@ class MainViewModel @Inject constructor(
         if (lat !in -90.0..90.0 || lng !in -180.0..180.0) return false
         val label = "Custom point (${UberLinks.formatCoord(lat)}, ${UberLinks.formatCoord(lng)})"
         _flow.value = FlowState.Ready(buildPage(lat, lng, label, label))
+        viewModelScope.launch {
+            historyStore.record(
+                HistoryEntry(
+                    kind = HistoryKind.COORDS,
+                    input = "${UberLinks.formatCoord(lat)},${UberLinks.formatCoord(lng)}",
+                    label = label,
+                ),
+            )
+        }
         return true
     }
 

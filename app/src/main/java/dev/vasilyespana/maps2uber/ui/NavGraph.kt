@@ -8,6 +8,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import dev.vasilyespana.maps2uber.MainViewModel
+import dev.vasilyespana.maps2uber.core.history.HistoryEntry
+import dev.vasilyespana.maps2uber.core.history.HistoryKind
 import dev.vasilyespana.maps2uber.ui.home.HomeScreen
 import dev.vasilyespana.maps2uber.ui.resolving.ResolvingScreen
 import dev.vasilyespana.maps2uber.ui.results.ResultsScreen
@@ -24,8 +26,18 @@ fun NavGraph(viewModel: MainViewModel) {
     NavHost(navController = navController, startDestination = "home") {
         composable("home") {
             val flow by viewModel.flow.collectAsState()
+            val history by viewModel.history.collectAsState()
             BackHandler(enabled = flow !is MainViewModel.FlowState.Idle) {
                 viewModel.backToHome()
+            }
+            val onSelectHistory: (HistoryEntry) -> Unit = { entry ->
+                when (entry.kind) {
+                    HistoryKind.LINK -> viewModel.startWithUrl(entry.input)
+                    HistoryKind.COORDS -> {
+                        val coords = entry.input.split(",").mapNotNull { it.toDoubleOrNull() }
+                        if (coords.size == 2) viewModel.startManual(coords[0], coords[1])
+                    }
+                }
             }
             when (val f = flow) {
                 is MainViewModel.FlowState.Idle ->
@@ -34,6 +46,9 @@ fun NavGraph(viewModel: MainViewModel) {
                         onGenerateManual = { lat, lng -> viewModel.startManual(lat, lng) },
                         onOpenSettings = { navController.navigate("settings") },
                         error = null,
+                        history = history,
+                        onSelectHistory = onSelectHistory,
+                        onClearHistory = { viewModel.clearHistory() },
                     )
                 is MainViewModel.FlowState.Resolving -> ResolvingScreen(input = f.input)
                 is MainViewModel.FlowState.Ready -> ResultsScreen(page = f.page)
@@ -43,6 +58,9 @@ fun NavGraph(viewModel: MainViewModel) {
                         onGenerateManual = { lat, lng -> viewModel.startManual(lat, lng) },
                         onOpenSettings = { navController.navigate("settings") },
                         error = f.message,
+                        history = history,
+                        onSelectHistory = onSelectHistory,
+                        onClearHistory = { viewModel.clearHistory() },
                     )
             }
         }

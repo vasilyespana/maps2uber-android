@@ -446,6 +446,13 @@ fun SettingsScreen(
                     Text("Save preset")
                 }
             }
+
+            Text("About", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Map2Ride is an independent app and is not affiliated with, sponsored, or endorsed by Uber Technologies, Inc.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

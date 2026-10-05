@@ -57,7 +57,7 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Maps → Uber") },
+                title = { Text("Map2Ride") },
                 actions = {
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings")
@@ -152,7 +152,7 @@ fun HomeScreen(
 
             Spacer(Modifier.height(8.dp))
             Text(
-                "Tip: share any Google Maps pin to Maps2Uber from the share sheet, " +
+                "Tip: share any Google Maps pin to Map2Ride from the share sheet, " +
                     "or tap a maps link in WhatsApp / Facebook — the app opens it directly.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

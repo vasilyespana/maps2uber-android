@@ -38,6 +38,27 @@ data class FailureReportDto(
     @SerializedName("source") val source: String = "android",
 )
 
+/**
+ * Learning-loop intake for SUCCESSFUL resolutions. Lets the backend track
+ * which link formats are working and popular.
+ */
+data class SuccessReportDto(
+    @SerializedName("url") val url: String,
+    @SerializedName("source") val source: String = "android",
+)
+
+/**
+ * Deep-link click tracking: which Uber links users actually tap.
+ * link_type is "destination" or "probe"; probe_bearing is 0..324 for probes.
+ */
+data class DeepLinkClickDto(
+    @SerializedName("deep_link") val deepLink: String,
+    @SerializedName("link_type") val linkType: String,
+    @SerializedName("probe_bearing") val probeBearing: Int? = null,
+    @SerializedName("map_url") val mapUrl: String = "",
+    @SerializedName("source") val source: String = "android",
+)
+
 /** Single mapping point: raw JSON -> ResolveResult. Unit-tested. */
 object ResolveParser {
     private val gson = Gson()

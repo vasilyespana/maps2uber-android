@@ -66,6 +66,7 @@ class MainViewModel @Inject constructor(
 
     /** Cold start with a shared / tapped maps link: skip Home, go straight to Resolving. */
     fun startWithUrl(url: String) {
+        lastSubmittedUrl = url
         _flow.value = FlowState.Resolving(url)
         viewModelScope.launch {
             when (val r = repository.resolve(url)) {
@@ -75,6 +76,8 @@ class MainViewModel @Inject constructor(
                     historyStore.record(
                         HistoryEntry(kind = HistoryKind.LINK, input = url, label = label),
                     )
+                    // Learning-loop intake: record the successful submission.
+                    launch { failureReports.reportSuccess(url) }
                 }
                 is ResolveResult.Err -> {
                     // Learning-loop intake: report the unrecognized link in its
@@ -143,4 +146,14 @@ class MainViewModel @Inject constructor(
             },
         )
     }
+
+    /** Deep-link click telemetry: which Uber link the user tapped. Fire-and-forget. */
+    fun reportDeepLinkClick(deepLink: String, linkType: String, probeBearing: Int?) {
+        val mapUrl = lastSubmittedUrl ?: ""
+        viewModelScope.launch {
+            failureReports.reportClick(deepLink, linkType, probeBearing, mapUrl)
+        }
+    }
+
+    private var lastSubmittedUrl: String? = null
 }

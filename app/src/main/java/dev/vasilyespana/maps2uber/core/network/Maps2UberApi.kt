@@ -19,4 +19,18 @@ interface Maps2UberApi {
      */
     @POST("api/resolve-failures")
     suspend fun reportFailure(@Body body: FailureReportDto): Response<ResponseBody>
+
+    /**
+     * Learning-loop intake: reports successfully resolved links so the
+     * backend can track which formats are popular. Fire-and-forget.
+     */
+    @POST("api/resolve-success")
+    suspend fun reportSuccess(@Body body: SuccessReportDto): Response<ResponseBody>
+
+    /**
+     * Deep-link click tracking: which Uber links users actually tap.
+     * Fire-and-forget.
+     */
+    @POST("api/deep-link-clicks")
+    suspend fun reportClick(@Body body: DeepLinkClickDto): Response<ResponseBody>
 }

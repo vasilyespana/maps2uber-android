@@ -1,0 +1,49 @@
+# F-Droid metadata draft for Maps2Uber
+# Submit via: https://gitlab.com/fdroid/fdroiddata → new merge request adding
+# metadata/dev.vasilyespana.maps2uber.yml
+# OR file an inclusion issue at https://gitlab.com/fdroid/fdroiddata/-/issues
+# using the "App inclusion" template and paste this metadata.
+
+Categories:
+  - Navigation
+# TODO: Vasily must choose a license and add a LICENSE file to the repo.
+# Suggested: MIT (simple, permissive). Alternatives: Apache-2.0, GPL-3.0.
+License: MIT
+WebSite: https://maps2uber.vasilyespana.workers.dev/
+SourceCode: https://github.com/vasilyespana/maps2uber-android
+IssueTracker: https://github.com/vasilyespana/maps2uber-android/issues
+Donate: null
+
+AutoName: Maps2Uber
+Summary: Google Maps pin → Uber deep links + fare probes
+Description: |-
+  Paste a Google Maps link and get an Uber deep link to that exact spot —
+  plus 10 probe links on a 100&nbsp;m circle to compare fares and detect
+  surge-zone boundaries. Real proof: $9.32 vs $11.37 for the same ride in
+  Condado, San Juan — 22% saved with a one-minute walk.
+  .
+  Free, no ads, no accounts. Map links you submit are resolved server-side;
+  see the privacy policy at https://maps2uber.vasilyespana.workers.dev/privacy.
+
+RepoType: git
+Repo: https://github.com/vasilyespana/maps2uber-android
+
+Builds:
+  - versionName: '1.3'
+    versionCode: 4
+    commit: v1.3.0
+    subdir: app
+    gradle:
+      - yes
+    # NOTE: depends on com.google.android.gms:play-services-location
+    # (proprietary). F-Droid will apply the NonFreeDep anti-feature unless
+    # the dependency is replaced with android.location.LocationManager.
+
+AntiFeatures:
+  NonFreeDep: Uses Google Play Services Location (proprietary). Planned to
+    replace with framework LocationManager.
+
+AutoUpdateMode: Version v%v
+UpdateCheckMode: Tags
+CurrentVersion: '1.3'
+CurrentVersionCode: 4

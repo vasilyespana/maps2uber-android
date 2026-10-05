@@ -57,7 +57,10 @@ private fun copyText(context: Context, label: String, text: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ResultsScreen(page: ResolvedPage) {
+fun ResultsScreen(
+    page: ResolvedPage,
+    onUberLinkClick: (deepLink: String, linkType: String, probeBearing: Int?) -> Unit = { _, _, _ -> },
+) {
     val context = LocalContext.current
     var selectedPin by remember { mutableStateOf<SelectedPin?>(null) }
     val sheetState = rememberModalBottomSheetState()
@@ -106,7 +109,10 @@ fun ResultsScreen(page: ResolvedPage) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Button(
-                onClick = { openUberLink(context, page.mainUberUrl) },
+                onClick = {
+                    onUberLinkClick(page.mainUberUrl, "destination", null)
+                    openUberLink(context, page.mainUberUrl)
+                },
                 modifier = Modifier
                     .weight(1f)
                     .height(56.dp),
@@ -125,7 +131,10 @@ fun ResultsScreen(page: ResolvedPage) {
         page.probes.forEach { probe ->
             ProbeRow(
                 probe = probe,
-                onOpen = { openUberLink(context, probe.uberUrl) },
+                onOpen = {
+                    onUberLinkClick(probe.uberUrl, "probe", probe.bearingDeg.toInt())
+                    openUberLink(context, probe.uberUrl)
+                },
                 onCopy = { copyText(context, "Probe link", probe.uberUrl) },
             )
         }
@@ -154,6 +163,11 @@ fun ResultsScreen(page: ResolvedPage) {
                 pin = pin,
                 page = page,
                 onOpen = { url ->
+                    val (linkType, bearing) = when (pin) {
+                        is SelectedPin.Main -> "destination" to null
+                        is SelectedPin.Probe -> "probe" to pin.probe.bearingDeg.toInt()
+                    }
+                    onUberLinkClick(url, linkType, bearing)
                     selectedPin = null
                     openUberLink(context, url)
                 },

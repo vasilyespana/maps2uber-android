@@ -51,7 +51,12 @@ fun NavGraph(viewModel: MainViewModel) {
                         onClearHistory = { viewModel.clearHistory() },
                     )
                 is MainViewModel.FlowState.Resolving -> ResolvingScreen(input = f.input)
-                is MainViewModel.FlowState.Ready -> ResultsScreen(page = f.page)
+                is MainViewModel.FlowState.Ready -> ResultsScreen(
+                    page = f.page,
+                    onUberLinkClick = { deepLink, linkType, probeBearing ->
+                        viewModel.reportDeepLinkClick(deepLink, linkType, probeBearing)
+                    },
+                )
                 is MainViewModel.FlowState.Failed ->
                     HomeScreen(
                         onGenerateLink = { viewModel.startWithUrl(it) },

@@ -40,8 +40,12 @@ import androidx.core.net.toUri
 import dev.vasilyespana.maps2uber.ProbeLink
 import dev.vasilyespana.maps2uber.ResolvedPage
 import dev.vasilyespana.maps2uber.core.geo.UberLinks
+import dev.vasilyespana.maps2uber.core.rides.RideLatLng
+import dev.vasilyespana.maps2uber.core.rides.RideProvider
+import dev.vasilyespana.maps2uber.core.rides.RideProviderLauncher
+import dev.vasilyespana.maps2uber.core.rides.RideProviders
 
-private fun openUberLink(context: Context, url: String) {
+private fun openUrl(context: Context, url: String) {
     try {
         context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
     } catch (e: Exception) {
@@ -57,10 +61,39 @@ private fun copyText(context: Context, label: String, text: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ResultsScreen(page: ResolvedPage) {
+fun ResultsScreen(
+    page: ResolvedPage,
+    provider: RideProvider,
+) {
     val context = LocalContext.current
     var selectedPin by remember { mutableStateOf<SelectedPin?>(null) }
-    val sheetState = rememberModalBottomSheetState()
+    var fallbackProvider by remember { mutableStateOf<RideProvider?>(null) }
+    var fallbackDest by remember { mutableStateOf<RideLatLng?>(null) }
+    var fallbackDestName by remember { mutableStateOf("") }
+    val pinSheetState = rememberModalBottomSheetState()
+    val fallbackSheetState = rememberModalBottomSheetState()
+
+    val origin = page.pickup?.let { RideLatLng(it.lat, it.lng) }
+
+    /**
+     * Opens the provider app for [lat]/[lng]. When the app isn't installed,
+     * stashes the request and shows the install fallback sheet instead.
+     */
+    fun openRide(p: RideProvider, lat: Double, lng: Double, name: String) {
+        val dest = RideLatLng(lat, lng)
+        val intent = RideProviderLauncher.rideIntent(context, p, origin, dest, name)
+        if (intent != null) {
+            try {
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(context, "No app can open this link", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            fallbackProvider = p
+            fallbackDest = dest
+            fallbackDestName = name
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -106,12 +139,14 @@ fun ResultsScreen(page: ResolvedPage) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Button(
-                onClick = { openUberLink(context, page.mainUberUrl) },
+                onClick = {
+                    openRide(provider, page.lat, page.lng, page.name.ifEmpty { "Dropped pin" })
+                },
                 modifier = Modifier
                     .weight(1f)
                     .height(56.dp),
             ) {
-                Text("Open in Uber", style = MaterialTheme.typography.titleMedium)
+                Text("Open in ${provider.name}", style = MaterialTheme.typography.titleMedium)
             }
             OutlinedButton(
                 onClick = { copyText(context, "Uber link", page.mainUberUrl) },
@@ -125,7 +160,15 @@ fun ResultsScreen(page: ResolvedPage) {
         page.probes.forEach { probe ->
             ProbeRow(
                 probe = probe,
-                onOpen = { openUberLink(context, probe.uberUrl) },
+                providerName = provider.name,
+                onOpen = {
+                    openRide(
+                        provider,
+                        probe.lat,
+                        probe.lng,
+                        page.name.ifEmpty { "Dropped pin" },
+                    )
+                },
                 onCopy = { copyText(context, "Probe link", probe.uberUrl) },
             )
         }
@@ -136,7 +179,7 @@ fun ResultsScreen(page: ResolvedPage) {
             ),
         ) {
             Text(
-                "Tip: tap a blue pin to open that probe in Uber — if a 100 m shift " +
+                "Tip: tap a blue pin to open that probe in ${provider.name} — if a 100 m shift " +
                     "changes the fare, the pin may be sitting on a zone boundary.",
                 modifier = Modifier.padding(12.dp),
                 style = MaterialTheme.typography.bodySmall,
@@ -148,23 +191,125 @@ fun ResultsScreen(page: ResolvedPage) {
     selectedPin?.let { pin ->
         ModalBottomSheet(
             onDismissRequest = { selectedPin = null },
-            sheetState = sheetState,
+            sheetState = pinSheetState,
         ) {
             PinSheetContent(
                 pin = pin,
                 page = page,
-                onOpen = { url ->
+                provider = provider,
+                onOpen = { lat, lng, name ->
                     selectedPin = null
-                    openUberLink(context, url)
+                    openRide(provider, lat, lng, name)
                 },
                 onCopy = { url -> copyText(context, "Probe link", url) },
             )
         }
     }
+
+    val fp = fallbackProvider
+    val fd = fallbackDest
+    if (fp != null && fd != null) {
+        ModalBottomSheet(
+            onDismissRequest = { fallbackProvider = null },
+            sheetState = fallbackSheetState,
+        ) {
+            ProviderFallbackSheet(
+                provider = fp,
+                dest = fd,
+                origin = origin,
+                onDismiss = { fallbackProvider = null },
+            )
+        }
+    }
+}
+
+/**
+ * Shown when the selected provider's app isn't installed. Offers the Play
+ * Store listing, the universal web fallback (when the provider publishes
+ * one), and a 1-tap Uber backup.
+ */
+@Composable
+private fun ProviderFallbackSheet(
+    provider: RideProvider,
+    dest: RideLatLng,
+    origin: RideLatLng?,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            "${provider.name} isn't installed",
+            style = MaterialTheme.typography.titleLarge,
+        )
+        Text(
+            "Install it to book this ride, open the web version, or continue with Uber.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(4.dp))
+        if (provider.playStorePackage != null) {
+            Button(
+                onClick = {
+                    RideProviderLauncher.playStoreIntent(provider)?.let {
+                        try {
+                            context.startActivity(it)
+                        } catch (e: Exception) {
+                            Toast.makeText(
+                                context,
+                                "Couldn't open the Play Store",
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    }
+                    onDismiss()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Get ${provider.name} on Google Play")
+            }
+        }
+        val webUrl = provider.buildUniversalUrl(dest)
+        if (webUrl != null) {
+            OutlinedButton(
+                onClick = {
+                    openUrl(context, webUrl)
+                    onDismiss()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Continue in browser")
+            }
+        }
+        OutlinedButton(
+            onClick = {
+                val uber = RideProviders.default
+                // 1-tap backup: prefer the universal URL so it works even
+                // when the Uber app isn't installed either.
+                val backup = uber.buildUniversalUrl(dest)
+                    ?: uber.buildDeepLink(origin, dest, "")!!
+                openUrl(context, backup)
+                onDismiss()
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Use Uber instead")
+        }
+    }
 }
 
 @Composable
-private fun ProbeRow(probe: ProbeLink, onOpen: () -> Unit, onCopy: () -> Unit) {
+private fun ProbeRow(
+    probe: ProbeLink,
+    providerName: String,
+    onOpen: () -> Unit,
+    onCopy: () -> Unit,
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -185,7 +330,7 @@ private fun ProbeRow(probe: ProbeLink, onOpen: () -> Unit, onCopy: () -> Unit) {
                 )
             }
             TextButton(onClick = onCopy) { Text("Copy") }
-            TextButton(onClick = onOpen) { Text("Uber") }
+            TextButton(onClick = onOpen) { Text(providerName) }
         }
     }
 }
@@ -194,7 +339,8 @@ private fun ProbeRow(probe: ProbeLink, onOpen: () -> Unit, onCopy: () -> Unit) {
 private fun PinSheetContent(
     pin: SelectedPin,
     page: ResolvedPage,
-    onOpen: (String) -> Unit,
+    provider: RideProvider,
+    onOpen: (lat: Double, lng: Double, name: String) -> Unit,
     onCopy: (String) -> Unit,
 ) {
     val (title, subtitle, lat, lng, uberUrl) = when (pin) {
@@ -227,12 +373,12 @@ private fun PinSheetContent(
         )
         Spacer(Modifier.height(4.dp))
         Button(
-            onClick = { onOpen(uberUrl) },
+            onClick = { onOpen(lat, lng, title) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
         ) {
-            Text("Open in Uber", style = MaterialTheme.typography.titleMedium)
+            Text("Open in ${provider.name}", style = MaterialTheme.typography.titleMedium)
         }
         OutlinedButton(
             onClick = { onCopy(uberUrl) },

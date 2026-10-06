@@ -36,6 +36,8 @@ data class ResolvedPage(
     val address: String,
     val mainUberUrl: String,
     val probes: List<ProbeLink>,
+    /** Pickup used for provider deep links; null = rider's live location. */
+    val pickup: Pickup?,
 )
 
 @HiltViewModel
@@ -141,6 +143,7 @@ class MainViewModel @Inject constructor(
                     uberUrl = UberLinks.uberLink(p.lat, p.lng, name, address, pickup),
                 )
             },
+            pickup = pickup,
         )
     }
 }

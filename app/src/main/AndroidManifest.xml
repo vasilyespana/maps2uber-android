@@ -5,6 +5,17 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <!-- Package visibility for ride-provider install checks (Android 11+) -->
+    <queries>
+        <package android:name="com.ubercab" />
+        <package android:name="me.lyft.android" />
+        <package android:name="ee.mtakso.client" />
+        <package android:name="mobi.myTaxi.android.user" />
+        <package android:name="com.grabtaxi.passenger" />
+        <package android:name="com.gettaxi.android" />
+        <package android:name="com.didiglobal.passenger" />
+    </queries>
+
     <application
         android:name=".Maps2UberApp"
         android:allowBackup="true"

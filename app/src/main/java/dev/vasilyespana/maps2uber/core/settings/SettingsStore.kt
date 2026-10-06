@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.vasilyespana.maps2uber.core.rides.RideProviders
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -21,6 +22,7 @@ data class AppSettings(
     val pickupMode: PickupMode = PickupMode.CURRENT_LOCATION,
     val presets: List<PickupPreset> = emptyList(),
     val activePresetId: String? = null,
+    val rideProviderId: String = RideProviders.DEFAULT_ID,
 ) {
     /** The preset currently used for pickup params, if any. */
     val activePreset: PickupPreset?
@@ -33,6 +35,7 @@ class SettingsStore @Inject constructor(
 ) {
     private object Keys {
         val PICKUP_MODE = stringPreferencesKey("pickup_mode")
+        val RIDE_PROVIDER_ID = stringPreferencesKey("ride_provider_id")
         val PRESETS_JSON = stringPreferencesKey("presets_json")
         val ACTIVE_PRESET_ID = stringPreferencesKey("active_preset_id")
 
@@ -53,6 +56,9 @@ class SettingsStore @Inject constructor(
             }.getOrDefault(PickupMode.CURRENT_LOCATION),
             presets = presets,
             activePresetId = activeId,
+            rideProviderId = RideProviders.byId(
+                p[Keys.RIDE_PROVIDER_ID] ?: RideProviders.DEFAULT_ID,
+            )?.id ?: RideProviders.DEFAULT_ID,
         )
     }
 
@@ -85,6 +91,12 @@ class SettingsStore @Inject constructor(
         context.dataStore.edit { p ->
             if (readPresets(p).any { it.id == id }) p[Keys.ACTIVE_PRESET_ID] = id
         }
+    }
+
+    /** Persists the preferred ride provider; unknown ids fall back to Uber. */
+    suspend fun setRideProvider(id: String) {
+        val valid = RideProviders.byId(id)?.id ?: RideProviders.DEFAULT_ID
+        context.dataStore.edit { it[Keys.RIDE_PROVIDER_ID] = valid }
     }
 
     // ---- internal helpers (operate on the preferences inside edit) ----

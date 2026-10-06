@@ -10,6 +10,7 @@ import androidx.navigation.compose.rememberNavController
 import dev.vasilyespana.maps2uber.MainViewModel
 import dev.vasilyespana.maps2uber.core.history.HistoryEntry
 import dev.vasilyespana.maps2uber.core.history.HistoryKind
+import dev.vasilyespana.maps2uber.core.rides.RideProviders
 import dev.vasilyespana.maps2uber.ui.home.HomeScreen
 import dev.vasilyespana.maps2uber.ui.resolving.ResolvingScreen
 import dev.vasilyespana.maps2uber.ui.results.ResultsScreen
@@ -51,7 +52,12 @@ fun NavGraph(viewModel: MainViewModel) {
                         onClearHistory = { viewModel.clearHistory() },
                     )
                 is MainViewModel.FlowState.Resolving -> ResolvingScreen(input = f.input)
-                is MainViewModel.FlowState.Ready -> ResultsScreen(page = f.page)
+                is MainViewModel.FlowState.Ready -> {
+                    val settings by viewModel.settings.collectAsState()
+                    val provider =
+                        RideProviders.byId(settings.rideProviderId) ?: RideProviders.default
+                    ResultsScreen(page = f.page, provider = provider)
+                }
                 is MainViewModel.FlowState.Failed ->
                     HomeScreen(
                         onGenerateLink = { viewModel.startWithUrl(it) },

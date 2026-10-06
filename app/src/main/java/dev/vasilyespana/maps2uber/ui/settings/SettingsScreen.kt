@@ -9,7 +9,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import android.widget.Toast
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -20,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -31,6 +37,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -41,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -55,6 +63,8 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.vasilyespana.maps2uber.core.geo.UberLinks
+import dev.vasilyespana.maps2uber.core.rides.RideProvider
+import dev.vasilyespana.maps2uber.core.rides.RideProviders
 import dev.vasilyespana.maps2uber.core.settings.PickupMode
 import dev.vasilyespana.maps2uber.core.settings.PickupPreset
 import dev.vasilyespana.maps2uber.core.settings.PresetCodec
@@ -87,6 +97,8 @@ class SettingsViewModel @Inject constructor(
     fun deletePreset(id: String) = viewModelScope.launch { store.deletePreset(id) }
 
     fun setActivePreset(id: String) = viewModelScope.launch { store.setActivePreset(id) }
+
+    fun setRideProvider(id: String) = viewModelScope.launch { store.setRideProvider(id) }
 
     fun clearNotice() {
         _notice.value = null
@@ -201,6 +213,39 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
+            }
+
+            Text("Preferred Ride Provider", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "CHOOSE DEFAULT APP",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            RideProviders.selectable.forEach { provider ->
+                ProviderRow(
+                    provider = provider,
+                    selected = s?.rideProviderId == provider.id,
+                    onSelect = { viewModel.setRideProvider(provider.id) },
+                )
+            }
+            Text(
+                "Coming soon",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            RideProviders.unsupported.forEach { provider ->
+                UnsupportedProviderRow(
+                    provider = provider,
+                    onTap = {
+                        Toast.makeText(
+                            context,
+                            "${provider.name} does not currently support direct " +
+                                "destination deep linking. We will enable this provider " +
+                                "as soon as their platform supports external routing.",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    },
+                )
             }
 
             Text("Pickup", style = MaterialTheme.typography.titleMedium)
@@ -450,6 +495,86 @@ fun SettingsScreen(
             Text("About", style = MaterialTheme.typography.titleMedium)
             Text(
                 "Map2Ride is an independent app and is not affiliated with, sponsored, or endorsed by Uber Technologies, Inc.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProviderRow(
+    provider: RideProvider,
+    selected: Boolean,
+    onSelect: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectable(
+                selected = selected,
+                onClick = onSelect,
+                role = Role.RadioButton,
+            )
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = onSelect)
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(provider.name, style = MaterialTheme.typography.bodyLarge)
+                if (provider.id == RideProviders.DEFAULT_ID) {
+                    Spacer(Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Text(
+                            "Default \u2022 Universal Link",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+            }
+            Text(
+                provider.region,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun UnsupportedProviderRow(
+    provider: RideProvider,
+    onTap: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .alpha(0.4f)
+            .clickable(onClick = onTap)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Filled.Lock,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(provider.name, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                provider.region,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "Deep linking not supported",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

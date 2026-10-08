@@ -197,4 +197,13 @@ object RideProviders {
     val default: RideProvider get() = byId(DEFAULT_ID)!!
 
     fun byId(id: String): RideProvider? = all.find { it.id == id }
+
+    /**
+     * The best alternative provider for price comparison against [provider]:
+     * Lyft when the current provider is Uber (both have reliable destination
+     * deep links), otherwise Uber. Powers the "Compare price in {other}"
+     * secondary action on the results screen and pin sheet.
+     */
+    fun compareAlternative(provider: RideProvider): RideProvider =
+        if (provider.id == DEFAULT_ID) byId("lyft")!! else default
 }

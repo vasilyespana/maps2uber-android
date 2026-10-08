@@ -90,4 +90,33 @@ class RideProvidersTest {
         val url = uber.buildDeepLink(null, RideLatLng(3.0, 4.0), "Hotel & Spa")!!
         assertTrue(url.contains("dropoff[nickname]=Hotel%20%26%20Spa"))
     }
+
+    @Test
+    fun compareAlternativeIsLyftForUber() {
+        val uber = RideProviders.byId("uber")!!
+        assertEquals("lyft", RideProviders.compareAlternative(uber).id)
+    }
+
+    @Test
+    fun compareAlternativeIsUberForLyft() {
+        val lyft = RideProviders.byId("lyft")!!
+        assertEquals("uber", RideProviders.compareAlternative(lyft).id)
+    }
+
+    @Test
+    fun compareAlternativeIsUberForOtherProviders() {
+        val bolt = RideProviders.byId("bolt")!!
+        assertEquals("uber", RideProviders.compareAlternative(bolt).id)
+    }
+
+    @Test
+    fun compareAlternativeIsNeverTheSameProvider() {
+        RideProviders.selectable.forEach { provider ->
+            val other = RideProviders.compareAlternative(provider)
+            assertFalse(
+                "compare alternative must differ from ${provider.id}",
+                other.id == provider.id,
+            )
+        }
+    }
 }

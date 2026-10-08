@@ -75,6 +75,9 @@ fun ResultsScreen(
 
     val origin = page.pickup?.let { RideLatLng(it.lat, it.lng) }
 
+    /** Second provider shown on the "Compare price in {other}" action. */
+    val compareWith = RideProviders.compareAlternative(provider)
+
     /**
      * Opens the provider app for [lat]/[lng]. When the app isn't installed,
      * stashes the request and shows the install fallback sheet instead.
@@ -156,6 +159,27 @@ fun ResultsScreen(
             }
         }
 
+        // Price comparison: same origin/destination in the alternative
+        // provider, reusing the openRide flow (incl. install fallback sheet).
+        OutlinedButton(
+            onClick = {
+                openRide(
+                    compareWith,
+                    page.lat,
+                    page.lng,
+                    page.name.ifEmpty { "Dropped pin" },
+                )
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+        ) {
+            Text(
+                "Compare price in ${compareWith.name}",
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
+
         Text("Probe points — 100 m circle", style = MaterialTheme.typography.titleMedium)
         page.probes.forEach { probe ->
             ProbeRow(
@@ -197,9 +221,14 @@ fun ResultsScreen(
                 pin = pin,
                 page = page,
                 provider = provider,
+                compareProvider = compareWith,
                 onOpen = { lat, lng, name ->
                     selectedPin = null
                     openRide(provider, lat, lng, name)
+                },
+                onCompare = { lat, lng, name ->
+                    selectedPin = null
+                    openRide(compareWith, lat, lng, name)
                 },
                 onCopy = { url -> copyText(context, "Probe link", url) },
             )
@@ -340,7 +369,9 @@ private fun PinSheetContent(
     pin: SelectedPin,
     page: ResolvedPage,
     provider: RideProvider,
+    compareProvider: RideProvider,
     onOpen: (lat: Double, lng: Double, name: String) -> Unit,
+    onCompare: (lat: Double, lng: Double, name: String) -> Unit,
     onCopy: (String) -> Unit,
 ) {
     val (title, subtitle, lat, lng, uberUrl) = when (pin) {
@@ -379,6 +410,17 @@ private fun PinSheetContent(
                 .height(56.dp),
         ) {
             Text("Open in ${provider.name}", style = MaterialTheme.typography.titleMedium)
+        }
+        OutlinedButton(
+            onClick = { onCompare(lat, lng, title) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+        ) {
+            Text(
+                "Compare price in ${compareProvider.name}",
+                style = MaterialTheme.typography.titleMedium,
+            )
         }
         OutlinedButton(
             onClick = { onCopy(uberUrl) },

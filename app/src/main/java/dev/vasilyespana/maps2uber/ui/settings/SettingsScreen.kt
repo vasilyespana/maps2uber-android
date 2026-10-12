@@ -63,6 +63,9 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.vasilyespana.maps2uber.core.geo.UberLinks
+import dev.vasilyespana.maps2uber.core.network.ClickEvent
+import dev.vasilyespana.maps2uber.core.network.ClickEventRepository
+import dev.vasilyespana.maps2uber.core.network.ClickEvents
 import dev.vasilyespana.maps2uber.core.rides.RideProvider
 import dev.vasilyespana.maps2uber.core.rides.RideProviders
 import dev.vasilyespana.maps2uber.core.settings.PickupMode
@@ -79,6 +82,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     val store: SettingsStore,
+    private val clickEvents: ClickEventRepository,
 ) : ViewModel() {
     val settings = store.settings
 
@@ -98,7 +102,17 @@ class SettingsViewModel @Inject constructor(
 
     fun setActivePreset(id: String) = viewModelScope.launch { store.setActivePreset(id) }
 
-    fun setRideProvider(id: String) = viewModelScope.launch { store.setRideProvider(id) }
+    fun setRideProvider(id: String) = viewModelScope.launch {
+        store.setRideProvider(id)
+        // Provider-choice telemetry: which provider people make primary.
+        clickEvents.report(
+            ClickEvent(
+                event = ClickEvents.SETTINGS_DEFAULT_PROVIDER_CHANGE,
+                providerId = RideProviders.byId(id)?.id ?: id,
+                surface = ClickEvents.SURFACE_SETTINGS,
+            ),
+        )
+    }
 
     fun clearNotice() {
         _notice.value = null

@@ -19,4 +19,12 @@ interface Maps2UberApi {
      */
     @POST("api/resolve-failures")
     suspend fun reportFailure(@Body body: FailureReportDto): Response<ResponseBody>
+
+    /**
+     * Click-event intake: provider choices and button taps
+     * (see [ClickEvents]). Fire-and-forget — failures are swallowed by
+     * [ClickEventRepository].
+     */
+    @POST("api/click-events")
+    suspend fun reportClickEvent(@Body body: ClickEventDto): Response<ResponseBody>
 }

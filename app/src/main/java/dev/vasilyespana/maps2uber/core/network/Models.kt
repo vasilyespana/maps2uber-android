@@ -38,6 +38,68 @@ data class FailureReportDto(
     @SerializedName("source") val source: String = "android",
 )
 
+/**
+ * Click-event vocabulary for POST /api/click-events (worker contract).
+ *
+ * Vasily directive 2026-10-12: track ALL clicks, not just submitted
+ * links — above all which provider people choose (on the circle vs the
+ * table, Uber vs Lyft), primary vs the second-provider comparison link,
+ * copy/share. Events carry the provider, the surface they happened on,
+ * and the submitted maps link they belong to (when known), so the
+ * weekly report can join clicks to submissions. No user identity and
+ * no device id exist anywhere in this payload.
+ */
+object ClickEvents {
+    const val PROVIDER_OPEN_PRIMARY = "provider_open_primary"
+    const val PROVIDER_OPEN_SECOND = "provider_open_second"
+    const val COPY_LINK = "copy_link"
+    const val SHARE = "share"
+    const val SETTINGS_DEFAULT_PROVIDER_CHANGE = "settings_default_provider_change"
+    const val GENERIC_BUTTON_CLICK = "generic_button_click"
+
+    const val SURFACE_CIRCLE = "circle"
+    const val SURFACE_TABLE = "table"
+    const val SURFACE_BUTTON = "button"
+    const val SURFACE_SETTINGS = "settings"
+    const val SURFACE_FALLBACK = "fallback"
+
+    const val POSITION_PRIMARY = "primary"
+    const val POSITION_SECOND = "second"
+    const val POSITION_PROBE = "probe"
+}
+
+/** One tap, as emitted by UI code. [url] = the submitted maps link, when known. */
+data class ClickEvent(
+    val event: String,
+    val providerId: String? = null,
+    val surface: String,
+    val position: String? = null,
+    val url: String? = null,
+    val buttonId: String? = null,
+) {
+    /** Wire shape for POST /api/click-events. Single mapping point, unit-tested. */
+    fun toDto(appVersion: String?): ClickEventDto = ClickEventDto(
+        event = event,
+        provider = providerId,
+        surface = surface,
+        position = position,
+        url = url,
+        appVersion = appVersion,
+        buttonId = buttonId,
+    )
+}
+
+data class ClickEventDto(
+    @SerializedName("event") val event: String,
+    @SerializedName("provider") val provider: String? = null,
+    @SerializedName("surface") val surface: String,
+    @SerializedName("position") val position: String? = null,
+    @SerializedName("url") val url: String? = null,
+    @SerializedName("platform") val platform: String = "android",
+    @SerializedName("app_version") val appVersion: String? = null,
+    @SerializedName("button_id") val buttonId: String? = null,
+)
+
 /** Single mapping point: raw JSON -> ResolveResult. Unit-tested. */
 object ResolveParser {
     private val gson = Gson()

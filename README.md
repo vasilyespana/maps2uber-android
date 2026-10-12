@@ -35,6 +35,21 @@ Same evening, same "Espera y Ahorra" service, two pins ~100 m apart near Kane Ru
 
 > **Tip from the app:** tap a blue pin to open that probe in Uber — if a 100 m shift changes the fare, the pin may be sitting on a zone boundary.
 
+## 📱 iPhone (iOS)
+
+Map2Ride for iOS lives in [`ios/`](ios/) — the resolve-and-go loop
+(paste a Maps link → destination → open in your primary **and** second
+ride provider to compare prices) with the same provider catalog and
+byte-identical deep links as Android v1.5.0. It's distributed free
+through **SideStore**: one source feed carries both Map2Ride and
+CallPages —
+
+```
+https://raw.githubusercontent.com/vasilyespana/maps2uber-android/main/sidestore-source.json
+```
+
+Setup and install steps: [`ios/INSTALL-FREE.md`](ios/INSTALL-FREE.md).
+
 ## Setup
 
 - JDK 17, Android SDK (platform 34, build-tools 34.0.0)

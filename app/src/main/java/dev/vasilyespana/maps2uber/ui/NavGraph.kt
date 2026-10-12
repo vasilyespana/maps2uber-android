@@ -56,7 +56,11 @@ fun NavGraph(viewModel: MainViewModel) {
                     val settings by viewModel.settings.collectAsState()
                     val provider =
                         RideProviders.byId(settings.rideProviderId) ?: RideProviders.default
-                    ResultsScreen(page = f.page, provider = provider)
+                    ResultsScreen(
+                        page = f.page,
+                        provider = provider,
+                        onClickEvent = viewModel::trackClick,
+                    )
                 }
                 is MainViewModel.FlowState.Failed ->
                     HomeScreen(

@@ -40,6 +40,11 @@ class FailureReportRepositoryTest {
             reported = body
             return onReport(body)
         }
+
+        override suspend fun reportClickEvent(
+            body: dev.vasilyespana.maps2uber.core.network.ClickEventDto,
+        ): Response<ResponseBody> =
+            throw UnsupportedOperationException("not under test")
     }
 
     @Test

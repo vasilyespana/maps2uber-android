@@ -8,6 +8,8 @@ import dev.vasilyespana.maps2uber.core.geo.UberLinks
 import dev.vasilyespana.maps2uber.core.history.HistoryEntry
 import dev.vasilyespana.maps2uber.core.history.HistoryKind
 import dev.vasilyespana.maps2uber.core.history.HistoryStore
+import dev.vasilyespana.maps2uber.core.network.ClickEvent
+import dev.vasilyespana.maps2uber.core.network.ClickEventRepository
 import dev.vasilyespana.maps2uber.core.network.FailureReportRepository
 import dev.vasilyespana.maps2uber.core.network.ResolveRepository
 import dev.vasilyespana.maps2uber.core.network.ResolveResult
@@ -38,12 +40,16 @@ data class ResolvedPage(
     val probes: List<ProbeLink>,
     /** Pickup used for provider deep links; null = rider's live location. */
     val pickup: Pickup?,
+    /** The maps link the user submitted (null for manual coordinates).
+     *  Carried so click events can be joined to the submission. */
+    val sourceUrl: String? = null,
 )
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val repository: ResolveRepository,
     private val failureReports: FailureReportRepository,
+    private val clickEvents: ClickEventRepository,
     private val settingsStore: SettingsStore,
     private val historyStore: HistoryStore,
 ) : ViewModel() {
@@ -72,7 +78,7 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             when (val r = repository.resolve(url)) {
                 is ResolveResult.Ok -> {
-                    _flow.value = FlowState.Ready(buildPage(r.lat, r.lng, r.name, r.address))
+                    _flow.value = FlowState.Ready(buildPage(r.lat, r.lng, r.name, r.address, url))
                     val label = r.name.ifBlank { url.take(48) }
                     historyStore.record(
                         HistoryEntry(kind = HistoryKind.LINK, input = url, label = label),
@@ -111,6 +117,11 @@ class MainViewModel @Inject constructor(
         _flow.value = FlowState.Idle
     }
 
+    /** Fire-and-forget click telemetry (provider choices, copy, …). */
+    fun trackClick(event: ClickEvent) {
+        viewModelScope.launch { clickEvents.report(event) }
+    }
+
     private fun currentPickup(): Pickup? {
         val s = settings.value
         val preset = s.activePreset
@@ -127,13 +138,20 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private fun buildPage(lat: Double, lng: Double, name: String, address: String): ResolvedPage {
+    private fun buildPage(
+        lat: Double,
+        lng: Double,
+        name: String,
+        address: String,
+        sourceUrl: String? = null,
+    ): ResolvedPage {
         val pickup = currentPickup()
         return ResolvedPage(
             lat = lat,
             lng = lng,
             name = name,
             address = address,
+            sourceUrl = sourceUrl,
             mainUberUrl = UberLinks.uberLink(lat, lng, name, address, pickup),
             probes = UberLinks.probePoints(lat, lng).map { p ->
                 ProbeLink(

@@ -40,6 +40,8 @@ import androidx.core.net.toUri
 import dev.vasilyespana.maps2uber.ProbeLink
 import dev.vasilyespana.maps2uber.ResolvedPage
 import dev.vasilyespana.maps2uber.core.geo.UberLinks
+import dev.vasilyespana.maps2uber.core.network.ClickEvent
+import dev.vasilyespana.maps2uber.core.network.ClickEvents
 import dev.vasilyespana.maps2uber.core.rides.RideLatLng
 import dev.vasilyespana.maps2uber.core.rides.RideProvider
 import dev.vasilyespana.maps2uber.core.rides.RideProviderLauncher
@@ -64,6 +66,7 @@ private fun copyText(context: Context, label: String, text: String) {
 fun ResultsScreen(
     page: ResolvedPage,
     provider: RideProvider,
+    onClickEvent: (ClickEvent) -> Unit,
 ) {
     val context = LocalContext.current
     var selectedPin by remember { mutableStateOf<SelectedPin?>(null) }
@@ -78,11 +81,42 @@ fun ResultsScreen(
     /** Second provider shown on the "Compare price in {other}" action. */
     val compareWith = RideProviders.compareAlternative(provider)
 
+    /** Click telemetry: every tap is reported with its provider + surface. */
+    fun emit(
+        event: String,
+        providerId: String?,
+        surface: String,
+        position: String? = null,
+        buttonId: String? = null,
+    ) {
+        onClickEvent(
+            ClickEvent(
+                event = event,
+                providerId = providerId,
+                surface = surface,
+                position = position,
+                url = page.sourceUrl,
+                buttonId = buttonId,
+            ),
+        )
+    }
+
     /**
      * Opens the provider app for [lat]/[lng]. When the app isn't installed,
      * stashes the request and shows the install fallback sheet instead.
+     * The tap itself is the provider-choice signal, so it is reported
+     * before the launch attempt, whatever its outcome.
      */
-    fun openRide(p: RideProvider, lat: Double, lng: Double, name: String) {
+    fun openRide(
+        p: RideProvider,
+        lat: Double,
+        lng: Double,
+        name: String,
+        event: String = ClickEvents.PROVIDER_OPEN_PRIMARY,
+        surface: String = ClickEvents.SURFACE_BUTTON,
+        position: String? = ClickEvents.POSITION_PRIMARY,
+    ) {
+        emit(event, p.id, surface, position)
         val dest = RideLatLng(lat, lng)
         val intent = RideProviderLauncher.rideIntent(context, p, origin, dest, name)
         if (intent != null) {
@@ -152,7 +186,14 @@ fun ResultsScreen(
                 Text("Open in ${provider.name}", style = MaterialTheme.typography.titleMedium)
             }
             OutlinedButton(
-                onClick = { copyText(context, "Uber link", page.mainUberUrl) },
+                onClick = {
+                    // The copied link is always the Uber-format link.
+                    emit(
+                        ClickEvents.COPY_LINK, RideProviders.DEFAULT_ID,
+                        ClickEvents.SURFACE_BUTTON, ClickEvents.POSITION_PRIMARY,
+                    )
+                    copyText(context, "Uber link", page.mainUberUrl)
+                },
                 modifier = Modifier.height(56.dp),
             ) {
                 Text("Copy")
@@ -168,6 +209,9 @@ fun ResultsScreen(
                     page.lat,
                     page.lng,
                     page.name.ifEmpty { "Dropped pin" },
+                    event = ClickEvents.PROVIDER_OPEN_SECOND,
+                    surface = ClickEvents.SURFACE_TABLE,
+                    position = ClickEvents.POSITION_SECOND,
                 )
             },
             modifier = Modifier
@@ -191,9 +235,17 @@ fun ResultsScreen(
                         probe.lat,
                         probe.lng,
                         page.name.ifEmpty { "Dropped pin" },
+                        surface = ClickEvents.SURFACE_TABLE,
+                        position = ClickEvents.POSITION_PROBE,
                     )
                 },
-                onCopy = { copyText(context, "Probe link", probe.uberUrl) },
+                onCopy = {
+                    emit(
+                        ClickEvents.COPY_LINK, RideProviders.DEFAULT_ID,
+                        ClickEvents.SURFACE_TABLE, ClickEvents.POSITION_PROBE,
+                    )
+                    copyText(context, "Probe link", probe.uberUrl)
+                },
             )
         }
 
@@ -222,15 +274,43 @@ fun ResultsScreen(
                 page = page,
                 provider = provider,
                 compareProvider = compareWith,
-                onOpen = { lat, lng, name ->
+                onOpen = { lat, lng, name, isProbe ->
                     selectedPin = null
-                    openRide(provider, lat, lng, name)
+                    openRide(
+                        provider, lat, lng, name,
+                        surface = ClickEvents.SURFACE_CIRCLE,
+                        position = if (isProbe) {
+                            ClickEvents.POSITION_PROBE
+                        } else {
+                            ClickEvents.POSITION_PRIMARY
+                        },
+                    )
                 },
-                onCompare = { lat, lng, name ->
+                onCompare = { lat, lng, name, isProbe ->
                     selectedPin = null
-                    openRide(compareWith, lat, lng, name)
+                    openRide(
+                        compareWith, lat, lng, name,
+                        event = ClickEvents.PROVIDER_OPEN_SECOND,
+                        surface = ClickEvents.SURFACE_CIRCLE,
+                        position = if (isProbe) {
+                            ClickEvents.POSITION_PROBE
+                        } else {
+                            ClickEvents.POSITION_SECOND
+                        },
+                    )
                 },
-                onCopy = { url -> copyText(context, "Probe link", url) },
+                onCopy = { url, isProbe ->
+                    emit(
+                        ClickEvents.COPY_LINK, RideProviders.DEFAULT_ID,
+                        ClickEvents.SURFACE_CIRCLE,
+                        if (isProbe) {
+                            ClickEvents.POSITION_PROBE
+                        } else {
+                            ClickEvents.POSITION_PRIMARY
+                        },
+                    )
+                    copyText(context, "Probe link", url)
+                },
             )
         }
     }
@@ -247,6 +327,8 @@ fun ResultsScreen(
                 dest = fd,
                 origin = origin,
                 onDismiss = { fallbackProvider = null },
+                onClickEvent = onClickEvent,
+                sourceUrl = page.sourceUrl,
             )
         }
     }
@@ -263,8 +345,21 @@ private fun ProviderFallbackSheet(
     dest: RideLatLng,
     origin: RideLatLng?,
     onDismiss: () -> Unit,
+    onClickEvent: (ClickEvent) -> Unit,
+    sourceUrl: String?,
 ) {
     val context = LocalContext.current
+    fun emitButton(buttonId: String, providerId: String) {
+        onClickEvent(
+            ClickEvent(
+                event = ClickEvents.GENERIC_BUTTON_CLICK,
+                providerId = providerId,
+                surface = ClickEvents.SURFACE_FALLBACK,
+                url = sourceUrl,
+                buttonId = buttonId,
+            ),
+        )
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -285,6 +380,7 @@ private fun ProviderFallbackSheet(
         if (provider.playStorePackage != null) {
             Button(
                 onClick = {
+                    emitButton("fallback_install", provider.id)
                     RideProviderLauncher.playStoreIntent(provider)?.let {
                         try {
                             context.startActivity(it)
@@ -307,6 +403,7 @@ private fun ProviderFallbackSheet(
         if (webUrl != null) {
             OutlinedButton(
                 onClick = {
+                    emitButton("fallback_web", provider.id)
                     openUrl(context, webUrl)
                     onDismiss()
                 },
@@ -317,6 +414,7 @@ private fun ProviderFallbackSheet(
         }
         OutlinedButton(
             onClick = {
+                emitButton("fallback_use_uber", RideProviders.DEFAULT_ID)
                 val uber = RideProviders.default
                 // 1-tap backup: prefer the universal URL so it works even
                 // when the Uber app isn't installed either.
@@ -370,10 +468,11 @@ private fun PinSheetContent(
     page: ResolvedPage,
     provider: RideProvider,
     compareProvider: RideProvider,
-    onOpen: (lat: Double, lng: Double, name: String) -> Unit,
-    onCompare: (lat: Double, lng: Double, name: String) -> Unit,
-    onCopy: (String) -> Unit,
+    onOpen: (lat: Double, lng: Double, name: String, isProbe: Boolean) -> Unit,
+    onCompare: (lat: Double, lng: Double, name: String, isProbe: Boolean) -> Unit,
+    onCopy: (String, Boolean) -> Unit,
 ) {
+    val isProbe = pin is SelectedPin.Probe
     val (title, subtitle, lat, lng, uberUrl) = when (pin) {
         is SelectedPin.Main -> Quint(
             page.name.ifEmpty { "Destination" },
@@ -404,7 +503,7 @@ private fun PinSheetContent(
         )
         Spacer(Modifier.height(4.dp))
         Button(
-            onClick = { onOpen(lat, lng, title) },
+            onClick = { onOpen(lat, lng, title, isProbe) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
@@ -412,7 +511,7 @@ private fun PinSheetContent(
             Text("Open in ${provider.name}", style = MaterialTheme.typography.titleMedium)
         }
         OutlinedButton(
-            onClick = { onCompare(lat, lng, title) },
+            onClick = { onCompare(lat, lng, title, isProbe) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
@@ -423,7 +522,7 @@ private fun PinSheetContent(
             )
         }
         OutlinedButton(
-            onClick = { onCopy(uberUrl) },
+            onClick = { onCopy(uberUrl, isProbe) },
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Copy link")

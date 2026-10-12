@@ -36,10 +36,20 @@ final class FlowScreenshotsUITests: XCTestCase {
 
         // Stage 2: Settings carries the primary + second provider
         // pickers (the second-provider rule lives here, not on the
-        // result screen's map or pin).
+        // result screen's map or pin). The Form realizes rows lazily,
+        // so scroll until the second-provider row/header materializes;
+        // matching is case-insensitive because iOS renders Form
+        // section headers in uppercase.
         app.buttons["Settings"].tap()
-        let secondHeader = app.staticTexts["Second provider (price comparison)"]
-        XCTAssertTrue(secondHeader.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 10))
+        let secondProvider = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS[c] %@", "Second provider")).firstMatch
+        var attempts = 0
+        while !secondProvider.exists && attempts < 6 {
+            app.swipeUp()
+            attempts += 1
+        }
+        XCTAssertTrue(secondProvider.waitForExistence(timeout: 5))
         snap(app, "stage2-settings-second-provider")
     }
 }

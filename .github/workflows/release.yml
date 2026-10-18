@@ -58,7 +58,7 @@ jobs:
       - name: Verify APK signatures (static gate)
         run: |
           for APK in app/build/outputs/apk/release/app-arm64-v8a-release.apk \
-            app/build/outputs/apk/release/app-armeabi-v7a-release.apk; do
+                   app/build/outputs/apk/release/app-armeabi-v7a-release.apk; do
             echo "== $APK"
             "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
             "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK" | grep -E "package:|native-code|launchable-activity"

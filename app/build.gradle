@@ -7,15 +7,15 @@ plugins {
 }
 
 android {
-    namespace 'dev.vasilyespana.maps2uber'
-    compileSdk 34
+    namespace 'dev.vasilyespana.map2ride'
+    compileSdk 36
 
     defaultConfig {
-        applicationId 'dev.vasilyespana.maps2uber'
+        applicationId 'dev.vasilyespana.map2ride'
         minSdk 26
-        targetSdk 34
-        versionCode 5
-        versionName '1.4'
+        targetSdk 36
+        versionCode 6
+        versionName '1.5.1'
 
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }

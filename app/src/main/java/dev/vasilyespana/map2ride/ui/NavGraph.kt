@@ -1,0 +1,77 @@
+package dev.vasilyespana.map2ride.ui
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import dev.vasilyespana.map2ride.MainViewModel
+import dev.vasilyespana.map2ride.core.history.HistoryEntry
+import dev.vasilyespana.map2ride.core.history.HistoryKind
+import dev.vasilyespana.map2ride.core.rides.RideProviders
+import dev.vasilyespana.map2ride.ui.home.HomeScreen
+import dev.vasilyespana.map2ride.ui.resolving.ResolvingScreen
+import dev.vasilyespana.map2ride.ui.results.ResultsScreen
+import dev.vasilyespana.map2ride.ui.settings.SettingsScreen
+
+/**
+ * The flow state (Idle / Resolving / Ready / Failed) is the single source of
+ * truth: a cold start carrying a shared or tapped maps link renders Resolving
+ * immediately — Home is skipped, never flashed.
+ */
+@Composable
+fun NavGraph(viewModel: MainViewModel) {
+    val navController = rememberNavController()
+    NavHost(navController = navController, startDestination = "home") {
+        composable("home") {
+            val flow by viewModel.flow.collectAsState()
+            val history by viewModel.history.collectAsState()
+            BackHandler(enabled = flow !is MainViewModel.FlowState.Idle) {
+                viewModel.backToHome()
+            }
+            val onSelectHistory: (HistoryEntry) -> Unit = { entry ->
+                when (entry.kind) {
+                    HistoryKind.LINK -> viewModel.startWithUrl(entry.input)
+                    HistoryKind.COORDS -> {
+                        val coords = entry.input.split(",").mapNotNull { it.toDoubleOrNull() }
+                        if (coords.size == 2) viewModel.startManual(coords[0], coords[1])
+                    }
+                }
+            }
+            when (val f = flow) {
+                is MainViewModel.FlowState.Idle ->
+                    HomeScreen(
+                        onGenerateLink = { viewModel.startWithUrl(it) },
+                        onGenerateManual = { lat, lng -> viewModel.startManual(lat, lng) },
+                        onOpenSettings = { navController.navigate("settings") },
+                        error = null,
+                        history = history,
+                        onSelectHistory = onSelectHistory,
+                        onClearHistory = { viewModel.clearHistory() },
+                    )
+                is MainViewModel.FlowState.Resolving -> ResolvingScreen(input = f.input)
+                is MainViewModel.FlowState.Ready -> {
+                    val settings by viewModel.settings.collectAsState()
+                    val provider =
+                        RideProviders.byId(settings.rideProviderId) ?: RideProviders.default
+                    ResultsScreen(page = f.page, provider = provider)
+                }
+                is MainViewModel.FlowState.Failed ->
+                    HomeScreen(
+                        onGenerateLink = { viewModel.startWithUrl(it) },
+                        onGenerateManual = { lat, lng -> viewModel.startManual(lat, lng) },
+                        onOpenSettings = { navController.navigate("settings") },
+                        error = f.message,
+                        history = history,
+                        onSelectHistory = onSelectHistory,
+                        onClearHistory = { viewModel.clearHistory() },
+                    )
+            }
+        }
+        composable("settings") {
+            SettingsScreen(onBack = { navController.popBackStack() })
+        }
+    }
+}

@@ -1,4 +1,4 @@
-// Top-level build file — Maps2Uber (dev.vasilyespana.maps2uber)
+// Top-level build file — Map2Ride (dev.vasilyespana.map2ride)
 plugins {
     id 'com.android.application' version '8.7.3' apply false
     id 'org.jetbrains.kotlin.android' version '2.0.21' apply false

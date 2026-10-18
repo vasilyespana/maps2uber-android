@@ -30,7 +30,7 @@ jobs:
         run: |
           for d in "$ANDROID_HOME"/cmdline-tools/*/bin; do export PATH="$d:$PATH"; done
           yes | sdkmanager --licenses > /dev/null
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Restore release keystore from secrets
         env:
@@ -58,10 +58,10 @@ jobs:
       - name: Verify APK signatures (static gate)
         run: |
           for APK in app/build/outputs/apk/release/app-arm64-v8a-release.apk \
-                   app/build/outputs/apk/release/app-armeabi-v7a-release.apk; do
+            app/build/outputs/apk/release/app-armeabi-v7a-release.apk; do
             echo "== $APK"
-            "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
-            "$ANDROID_HOME/build-tools/34.0.0/aapt2" dump badging "$APK" | grep -E "package:|native-code|launchable-activity"
+            "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+            "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK" | grep -E "package:|native-code|launchable-activity"
           done
 
       - name: Attach APKs to the release

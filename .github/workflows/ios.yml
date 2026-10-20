@@ -1,0 +1,131 @@
+name: iOS
+
+# Map2Ride for iOS (ios/ in this repo).
+# - PRs touching ios/**: build + unit tests + UI screenshot flow on the
+#   macOS runner's iPhone Simulator (MVR-VP simulator proof).
+# - Every run also produces the UNSIGNED IPA used by the free
+#   sideloading channel (SideStore — see ios/INSTALL-FREE.md and the
+#   repo-root sidestore-source.json). On version tags (ios-v*) the IPA
+#   is attached to a GitHub Release so SideStore can download it
+#   without a GitHub login (this repo is public).
+
+on:
+  pull_request:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios.yml"
+    tags:
+      - "ios-v*"
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      # Deliberately NO Xcode pin: the macos-15 image's simulator
+      # runtimes match its default Xcode (lesson from the CallPages
+      # iOS CI, 2026-10-11).
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build + unit & UI tests (iPhone Simulator)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          # The runner image ships runtimes but no pre-created devices:
+          # create one for the selected Xcode's own iOS SDK version.
+          SDK_VER=$(xcrun --sdk iphonesimulator --show-sdk-version)
+          RUNTIME_ID=$(xcrun simctl list -j runtimes | python3 -c "
+          import json, sys
+          sdk = sys.argv[1]
+          d = json.load(sys.stdin)
+          matches = [r for r in d['runtimes'] if r['version'] == sdk and r.get('isAvailable', True)]
+          print(matches[0]['identifier'] if matches else '')
+          " "$SDK_VER")
+          DEVICE_TYPE_ID=$(xcrun simctl list -j devicetypes | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          types = [t for t in d['devicetypes'] if t['name'].startswith('iPhone')]
+          types.sort(key=lambda t: t['name'])
+          pick = next((t for t in types if t['name'] == 'iPhone 16'), types[-1])
+          print(pick['identifier'])
+          ")
+          echo "SDK $SDK_VER runtime $RUNTIME_ID device type $DEVICE_TYPE_ID"
+          xcrun simctl create "Map2Ride CI iPhone" "$DEVICE_TYPE_ID" "$RUNTIME_ID"
+          # The destination MUST pin OS=$SDK_VER: an unpinned destination
+          # is read as OS:latest, which the freshly created device does
+          # not run.
+          xcodebuild test \
+            -project Map2Ride.xcodeproj \
+            -scheme Map2Ride \
+            -destination "platform=iOS Simulator,name=Map2Ride CI iPhone,OS=$SDK_VER" \
+            -resultBundlePath TestResults.xcresult \
+            | tee xcodebuild-test.log
+
+      - name: Export simulator screenshots (MVR-VP attachments)
+        if: always()
+        working-directory: ios
+        run: |
+          mkdir -p screenshots
+          xcrun xcresulttool export attachments \
+            --path TestResults.xcresult \
+            --output-path screenshots || true
+          find screenshots -type f | head -50 || true
+
+      - name: Upload simulator screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator-screenshots
+          path: ios/screenshots
+          if-no-files-found: ignore
+
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-log
+          path: ios/xcodebuild-test.log
+          if-no-files-found: ignore
+
+      - name: Build unsigned IPA (free sideload channel)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project ios/Map2Ride.xcodeproj \
+            -scheme Map2Ride \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath ios/build/Map2Ride.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+          APP_PATH="ios/build/Map2Ride.xcarchive/Products/Applications/Map2Ride.app"
+          mkdir -p Payload && cp -R "$APP_PATH" Payload/
+          zip -r "map2ride-ios-unsigned.ipa" Payload
+          rm -rf Payload
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: map2ride-ios-unsigned-ipa
+          path: map2ride-ios-unsigned.ipa
+
+      - name: Attach IPA to GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/ios-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: map2ride-ios-unsigned.ipa
